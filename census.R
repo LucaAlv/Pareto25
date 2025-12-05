@@ -3,8 +3,7 @@ library(data.table)
 library(sf)
 library(purrr)
 library(terra)
-library(rnaturalearth)
-library(rnaturalearthdata)
+library(ipumsr)
 
 ######################## Census Data ########################
 #### Loading the INEGI Shapefiles ####
@@ -33,9 +32,7 @@ shp_list <- set_names(shp_files, state_names) %>%
 inegi_shape_data <- do.call(rbind, shp_list) %>%
   janitor::clean_names()
 
-# plot(st_geometry(inegi_shape_data))
-
-#### Load Census Data ####
+#### Load Census Data for 2020 ####
 
 census_ind_noedit <- fread("Data/Socioeconomic Data/Census 2020/ExtendedQuestionaire/Censo2020_CA_eum_csv/Personas00.CSV")
 
@@ -63,6 +60,15 @@ census_ind <- census_ind_noedit %>%
     dest_id = sprintf("%02d%03d", as.integer(ent), as.integer(mun)),
     origin_id = sprintf("%02d%03d", as.integer(ent_pais_res_5a), as.integer(mun_res_5a)),
   )
+
+#### Load Census Data for 20xx ####
+# NOTE: To load data, you must download both the extract's data and the DDI
+
+ddi <- read_ipums_ddi("Data/Migration Data/ipumsi_00002.xml")
+ipums_censusv <- read_ipums_micro(ddi) 
+ipums_censusv_ed <- ipums_censusv %>%
+  janitor::clean_names()
+
 
 ######################## ERA5 weather data ########################
 
@@ -183,6 +189,8 @@ od_dest <- od_edges %>%
     by = c("dest_id" = "mun_id")
   )
 
+#Desitnation 
+
 od_dest_sf <- st_as_sf(od_dest) # Convert to sf object
 
 destination_plot <- ggplot(od_dest) +
@@ -209,4 +217,3 @@ origin_plot <- ggplot(od_origin) +
   geom_sf(aes(fill = total_emigration))
 
 mod1 = lm(total_emigration ~ num_disasters_total.y, data = od_origin)
-
