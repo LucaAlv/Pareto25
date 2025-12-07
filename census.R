@@ -61,15 +61,6 @@ census_ind <- census_ind_noedit %>%
     origin_id = sprintf("%02d%03d", as.integer(ent_pais_res_5a), as.integer(mun_res_5a)),
   )
 
-#### Load Census Data for 20xx ####
-# NOTE: To load data, you must download both the extract's data and the DDI
-
-ddi <- read_ipums_ddi("Data/Migration Data/ipumsi_00002.xml")
-ipums_censusv <- read_ipums_micro(ddi) 
-ipums_censusv_ed <- ipums_censusv %>%
-  janitor::clean_names()
-
-
 ######################## ERA5 weather data ########################
 
 
