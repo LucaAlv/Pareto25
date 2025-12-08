@@ -33,9 +33,7 @@ census_data <- census_data_raw %>%
 # Remove unprocessed data to free up space
 rm(census_data_raw)
 gc()
-
-fwrite(census_data, "Data/safe/census_data.csv")
-cat("Processed and saved census data\n")
+cat("Processed census data\n")
 
 #### Process census data controls ####
 
@@ -43,7 +41,7 @@ cat("Processed and saved census data\n")
 unique_geolevels <- unique(census_data$geolevel2)
   
 # Process in chunks
-chunk_size <- 1  # Adjust based on your memory
+chunk_size <- 10  # Adjust based on your memory
 n_chunks <- ceiling(length(unique_geolevels) / chunk_size)
 
 results_list <- list()
@@ -65,7 +63,7 @@ for(i in 1:n_chunks) {
       lit = ifelse(lit %in% c(0, 9), NA_real_, ifelse(lit == 2, 1, 0)),
       yrschool = as.integer(yrschool)
     ) %>%
-    group_by(geolevel2) %>%
+    group_by(geolevel2, year) %>%
     summarise(
       mean_inc = mean(incearn, na.rm = TRUE),
       popdensgeo2 = mean(popdensgeo2, na.rm = TRUE),
@@ -87,4 +85,7 @@ census_data_controls <- bind_rows(results_list)
 
 # Save to file
 fwrite(census_data_controls, "Data/safe/census_data_controls.csv")
+rm(census_data)
+gc()
+saveRDS(census_data_controls, "Data/safe/census_data_controls.rds")
 cat("Processed and saved census control data\n")
