@@ -4,12 +4,34 @@
 
 library(tidyverse)
 library(ipumsr)
-library(data.table)
 
 #### Load Census Data ####
 
-census_ddi <- read_ipums_ddi("Data/Migration Data/ipumsi_00002.xml")
+census_ddi <- read_ipums_ddi("Data/IPUMS/Census_Data/ipumsi_00002.xml")
 census_data_raw <- read_ipums_micro(census_ddi)
+
+state_nodes_preprocess <- census_data_raw %>%
+  janitor::clean_names() %>%
+  select(perwt, hhwt, geolev1, year, incearn, popdensgeo2, areamollwgeo2) %>%
+  filter(year == 2020) %>%
+  mutate(
+    popdensgeo2 = ifelse(popdensgeo2 == 0, NA_real_, popdensgeo2),
+    areamollwgeo2 = ifelse(areamollwgeo2 == 0, NA_real_, areamollwgeo2),
+    incearn = ifelse(incearn %in% c(99999999, 99999998), NA_real_, incearn),
+    mun_pop = sum(perwt, na.rm = TRUE)
+  ) %>%
+  group_by(geolev1, year) %>%
+  summarise(
+    mean_inc = weighted.mean(incearn, perwt, na.rm = TRUE),
+    mun_pop = first(mun_pop),
+    state_pop = sum(mun_pop),
+    .groups = "drop"
+  )
+
+saveRDS(state_nodes_preprocess, "Data/temp/state_nodes_preprocess")
+cat("Processed and saved pre process state level census data\n")
+rm(state_nodes_preprocess)
+gc()
 
 #### Formatting NAs correctly for geolevel2 ####
 census_data <- census_data_raw %>%
@@ -30,10 +52,10 @@ census_data <- census_data_raw %>%
     )
   )
 
-# Remove unprocessed data to free up space
 rm(census_data_raw)
+saveRDS(census_data, "Data/temp/census_data.rds")
+cat("Processed and saved census data\n")
 gc()
-cat("Processed census data\n")
 
 #### Process census data controls ####
 
@@ -54,23 +76,26 @@ for(i in 1:n_chunks) {
 
   chunk_result <- census_data %>%
     filter(geolevel2 %in% geolevels_chunk) %>%  
-    select(year, geolevel2, incearn, popdensgeo2, age, sex, lit, yrschool, mig2_5_mx) %>%
+    select(year, perwt, hhwt, geolevel1, geolevel2, incearn, popdensgeo2, age, sex, lit, yrschool, mig2_5_mx, areamollwgeo2) %>%
     mutate(
       # Recode data to indicate non-valid entries as NAs - do all at once
       incearn = ifelse(incearn %in% c(99999999, 99999998), NA_real_, incearn),
       age = ifelse(age == 999, NA_real_, age),
       sex = ifelse(sex == 9, NA_real_, ifelse(sex == 2, 1, 0)),
       lit = ifelse(lit %in% c(0, 9), NA_real_, ifelse(lit == 2, 1, 0)),
-      yrschool = as.integer(yrschool)
+      yrschool = as.integer(yrschool),
+      popdensgeo2 = ifelse(popdensgeo2 == 0, NA_real_, popdensgeo2),
     ) %>%
     group_by(geolevel2, year) %>%
     summarise(
-      mean_inc = mean(incearn, na.rm = TRUE),
-      popdensgeo2 = mean(popdensgeo2, na.rm = TRUE),
-      mean_age = mean(age, na.rm = TRUE),
-      rate_female = mean(sex, na.rm = TRUE),
-      rate_literacy = mean(lit, na.rm = TRUE),
-      mean_yrschool = mean(yrschool, na.rm = TRUE),
+      geolevel1 = first(geolevel1),
+      mean_inc = weighted.mean(incearn, perwt, na.rm = TRUE),
+      popdensgeo2 = first(popdensgeo2),
+      mean_age = weighted.mean(age, perwt, na.rm = TRUE),
+      rate_female = weighted.mean(sex, perwt, na.rm = TRUE),
+      rate_literacy = weighted.mean(lit, perwt, na.rm = TRUE),
+      mean_yrschool = weighted.mean(yrschool, perwt, na.rm = TRUE),
+      mun_pop = sum(perwt, na.rm = TRUE),
       .groups = "drop"
     )
     
@@ -84,8 +109,10 @@ for(i in 1:n_chunks) {
 census_data_controls <- bind_rows(results_list)
 
 # Save to file
-fwrite(census_data_controls, "Data/safe/census_data_controls.csv")
+
 rm(census_data)
 gc()
-saveRDS(census_data_controls, "Data/safe/census_data_controls.rds")
+
+fwrite(census_data_controls, "Data/temp/census_data_controls.csv")
+saveRDS(census_data_controls, "Data/temp/census_data_controls.rds")
 cat("Processed and saved census control data\n")
