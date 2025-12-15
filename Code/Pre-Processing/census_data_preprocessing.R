@@ -4,6 +4,7 @@
 
 library(tidyverse)
 library(ipumsr)
+library(data.table)
 
 #### Load Census Data ####
 
@@ -28,7 +29,7 @@ state_nodes_preprocess <- census_data_raw %>%
     .groups = "drop"
   )
 
-saveRDS(state_nodes_preprocess, "Data/temp/state_nodes_preprocess")
+saveRDS(state_nodes_preprocess, "Data/temp/state_nodes_preprocess.rds")
 cat("Processed and saved pre process state level census data\n")
 rm(state_nodes_preprocess)
 gc()
@@ -37,9 +38,11 @@ gc()
 census_data <- census_data_raw %>%
   janitor::clean_names() %>%
   rename(geolevel2 = geolev2, geolevel1 = geolev1) %>%
+  select(year, perwt, hhwt, geolevel1, geolevel2, incearn, popdensgeo2, age, sex, lit, yrschool, geomig1_5, mig1_5_mx, mig2_5_mx, areamollwgeo2) %>%
   mutate(
     geolevel2 = as.character(geolevel2),
     geolevel2 = if_else(
+      # Each of the following municipality codes gives information about state but not in which municipality a person was in
       geolevel2 %in% c(
         "484001999", "484002999", "484003999", "484004999", "484005999", "484006999",
         "484007999", "484008999", "484009999", "484010999", "484011999", "484012999",
@@ -49,21 +52,38 @@ census_data <- census_data_raw %>%
       ),
       NA_character_,
       geolevel2
+    ),
+    mig2_5_mx = as.character(mig2_5_mx),
+    mig2_5_mx = if_else(
+      mig2_5_mx %in% c(
+      # For every state 4840xx998 decodes the situation where state is known but municipality is not. 484097997 decodes migration abroad, 484097998 and 484097999 and NAs
+      "484001998", "484002998", "484003998", "484004998", "484005998", "484006998",
+      "484007998", "484008998", "484009998", "484010998", "484011998", "484012998",
+      "484013998", "484014998", "484015998", "484016998", "484017998", "484018998",
+      "484019998", "484020998", "484021998", "484022998", "484023998", "484024998",
+      "484025998", "484026998", "484027998", "484028998", "484029998", "484030998",
+      "484098997", "484098998", "484098999", "484099999"
+      ),
+      NA_character_,
+      mig2_5_mx
     )
   )
+  
 
 rm(census_data_raw)
-saveRDS(census_data, "Data/temp/census_data.rds")
+gc()
+# saveRDS(census_data, "Data/temp/census_data.rds")
+fwrite(census_data, "Data/temp/census_data.csv")
 cat("Processed and saved census data\n")
 gc()
 
-#### Process census data controls ####
+#### Process census data controls for municipality node dataset ####
 
 # Get unique geolevel2 values
 unique_geolevels <- unique(census_data$geolevel2)
   
 # Process in chunks
-chunk_size <- 10  # Adjust based on your memory
+chunk_size <- 10  # Adjust based on memory - i.e. if R crashes because working memory is not enough, lower this number!
 n_chunks <- ceiling(length(unique_geolevels) / chunk_size)
 
 results_list <- list()
@@ -76,7 +96,6 @@ for(i in 1:n_chunks) {
 
   chunk_result <- census_data %>%
     filter(geolevel2 %in% geolevels_chunk) %>%  
-    select(year, perwt, hhwt, geolevel1, geolevel2, incearn, popdensgeo2, age, sex, lit, yrschool, mig2_5_mx, areamollwgeo2) %>%
     mutate(
       # Recode data to indicate non-valid entries as NAs - do all at once
       incearn = ifelse(incearn %in% c(99999999, 99999998), NA_real_, incearn),
@@ -98,13 +117,13 @@ for(i in 1:n_chunks) {
       mun_pop = sum(perwt, na.rm = TRUE),
       .groups = "drop"
     )
-    
+
   results_list[[i]] <- chunk_result
   gc()  # Force garbage collection after each chunk
-    
+
   cat("Processed chunk", i, "of", n_chunks, "\n")
 }
-  
+
 # Combine all results
 census_data_controls <- bind_rows(results_list)
 

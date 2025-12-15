@@ -1,12 +1,23 @@
 ######################## Constructing nodes and edges (OD) data frames ########################
 
-#### Load preprocessed Data ####
+library(tidyverse)
+library(ipumsr)
+library(sf)
+library(purrr)
+library(terra)
 
-census_data <- readRDS("Data/temp/census_data.rds")
+#### Load preprocessed Data ####
+cat("Load preprocessed Data\n")
+
+census_data <- read_csv("Data/temp/census_data.csv")
+cat("Loaded census data\n")
 census_data_controls <- readRDS("Data/temp/census_data_controls.rds")
-disaster_indicator <- readRDS("Data/temp/disaster_data.rds")
+cat("Loaded census cotrols data\n")
+disaster_indicator <- readRDS("Data/temp/disaster_indicator.rds")
+cat("Loaded disaster indicator data\n")
 
 #### Load Spatial Data ####
+cat("Load Spatial Data\n")
 
 census_sf_geo1_raw <- read_ipums_sf("Data/IPUMS/shapefiles/geo1_mx1960_2020/geo1_mx1960_2020.shp")
 census_sf_geo2_raw <- read_ipums_sf("Data/IPUMS/shapefiles/geo2_mx1960_2020/geo2_mx1960_2020.shp")
@@ -28,45 +39,27 @@ census_sf_geo2 <- census_sf_geo2_raw %>%
 rm(census_sf_geo2_raw)
 gc()
 
-#### Loading disaster data ####
+#### Generating nodes data frame ####
+cat("Generating nodes data frame\n")
 
-
-#### Aggregating disaster data ####
-
-disaster_period <- disaster_data %>%
-  group_by(year_period, geolevel2) %>%
-  summarise(
-    num_disasters_period = n(),
-    .groups = "drop"
-  )
-
-disaster_indicator <- disaster_data %>%
-  group_by(year_census, geolevel2) %>%
-  summarise(
-    num_disasters_period = n(),
-    .groups = "drop"
-  )
-
-disaster_total <- disaster_data %>%
-  group_by(geolevel2) %>%
-  summarise(
-    num_disasters_total = n(),
-    .groups = "drop"
-  )
-
-
+expanded_years <- expand_grid(
+  geolevel2 = unique(census_sf_geo2$geolevel2),
+  year_census = c(2000, 2010, 2015, 2020)
+)
 
 # Nodes Data Frame - one entry per municipality per year
+
 mun_nodes_nomig <- census_sf_geo2 %>%
   # Delete pre-existing num_disasters_total column to avoid weird mergin issues when rerunning the code
   { if("num_disasters_period" %in% colnames(.)) select(-num_disasters_period) else . } %>%
+  right_join(expanded_years, by = "geolevel2") %>%
   ### Add simple disaster indicator to node df ###
-  full_join(
-    disaster_indicator, 
-    by = c("geolevel2" = "geolevel2")
+  left_join(
+    disaster_indicator,
+    by = c("geolevel2" = "geolevel2", "year_census" = "year_census")
   ) %>%
   ### Add control variables ###
-  full_join(
+  left_join(
     census_data_controls,
     by = c("geolevel2" = "geolevel2", "year_census" = "year")
   )
@@ -74,25 +67,13 @@ mun_nodes_nomig <- census_sf_geo2 %>%
 rm(census_sf_geo2)
 gc()
 
+#### Generating edges data frame ####
+cat("Generating edges data frame\n")
+
 # Edges Data Frame: Origin-destination (OD) matrix
 od_edges <- census_data %>%
   select(year, hhwt, perwt, geolevel1, geolevel2, geomig1_5, mig1_5_mx, mig2_5_mx) %>%
   mutate(mig2_5_mx = as.character(mig2_5_mx)) %>%
-  # For every state 4840xx998 decodes the situation where state is known but municipality is not. 484097997 decodes migration abroad, 484097998 and 484097999 and NAs
-  mutate(
-    mig2_5_mx = if_else(
-      mig2_5_mx %in% c(
-      "484001998", "484002998", "484003998", "484004998", "484005998", "484006998",
-      "484007998", "484008998", "484009998", "484010998", "484011998", "484012998",
-      "484013998", "484014998", "484015998", "484016998", "484017998", "484018998",
-      "484019998", "484020998", "484021998", "484022998", "484023998", "484024998",
-      "484025998", "484026998", "484027998", "484028998", "484029998", "484030998",
-      "484098997", "484098998", "484098999", "484099999"
-      ),
-      NA_character_,
-      mig2_5_mx
-      )
-  ) %>%
   filter(!is.na(mig2_5_mx)) %>%
   filter(geolevel2 != mig2_5_mx) %>%
   mutate(
@@ -117,12 +98,14 @@ cat("Loaded and saved edges data\n")
 rm(census_data)
 gc()
 
-# Add migration information to nodes
+#### Add migration information to nodes ####
+cat("Add migration information to nodes\n")
 
 # Data indicating where people went
 # Each row gives the amount of people who migrated TO geolevel2 in year_census
 od_dest <- od_edges %>%
   group_by(year_census, geolevel2) %>%
+  mutate(geolevel2 = as.character(geolevel2)) %>%
   summarise(
     period_immigration = sum(num_migrants),
     .groups = "drop"
@@ -146,7 +129,8 @@ mun_nodes <- mun_nodes_nomig %>%
   filter(!year_census == 2005) %>%
   # Assuming zero migration where I have no data !Change this later!
   mutate(
-    net_migration = period_immigration - period_emmigration,
+    net_immigration = period_immigration - period_emmigration,
+    net_immigration_rate = net_immigration / mun_pop,
     immigration_rate = period_immigration / mun_pop,
     emmigration_rate = period_emmigration / mun_pop
   )
@@ -156,8 +140,10 @@ cat("Loaded and saved municipality node data\n")
 rm(mun_nodes_nomig)
 gc()
 
+# State level aggregation for sanity checks
 state_nodes_postprocess <- mun_nodes %>%
   st_drop_geometry() %>%
+  mutate(geolevel1 = as.character(geolevel1)) %>%
   group_by(geolevel1, year_census) %>%
   summarise(
     num_disasters_period = sum(num_disasters_period),
@@ -170,13 +156,14 @@ state_nodes_postprocess <- mun_nodes %>%
     state_pop = sum(mun_pop),
     period_immigration = sum(period_immigration),
     period_emmigration = sum(period_emmigration),
-    net_migration = sum(net_migration),
+    net_immigration = sum(net_immigration),
     mean_immigration_rate = mean(immigration_rate, na.rm = TRUE),
     mean_emmigration_rate = mean(emmigration_rate, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  full_join(census_sf_geo1, by = c("geolevel1" = "geolevel1"))
 
-saveRDS(mun_nodes, "Data/temp/state_nodes_postprocess.rds")
+saveRDS(state_nodes_postprocess, "Data/temp/state_nodes_postprocess.rds")
 cat("Loaded and saved state node postprocess data\n")
-cat("Finished Succressfully")
+cat("Finished Succressfully\n")
 gc()
