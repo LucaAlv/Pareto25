@@ -1,0 +1,56 @@
+\subsection{Migration Data}
+The migration data used in this paper was sourced from the Mexican Population and Housing Census for the years 2000, 2010, 2015 and 2020. Specifically of interest was the long-form survey that was administered to approximately 10\% of households and included an extended questionnaire with information relevant for inter-municipal migration flows. The sampling process, i.e. the process of selecting which household received the extended questionnaire is based on multistage probability sampling with slight differences in the exact methodology between the three rounds. 
+The actual data used was downloaded from the IPUMS International Database. This greatly facilitates replication and ensures standardized variable naming across censuses. \\
+During pre-processing, first, invalid municipality codes were removed. Afterwards, municipality level, weighted means of relevant variables, such as age, literacy-rate, male/female ratio, etc. were calculated. The respective weights (contained in the perwt variable in the data) were chosen to make sure that averages represent the total Mexican population accurately. The overall goal during this stage was to create two datasets: \\
+A municipality-node dataset, that contains one entry for each node (=municipality) and census year combination. This dataset is relevant for the TWFE estimation.
+A municipality-edge dataset that contains information about the amount of people who migrated from one municipality to another in a certain time span. This dataset is relevant for the gravity model.
+
+Main challenges:
+Measurement error, loss of power due to missing information from 2000 to 2005
+
+\subsection{Creating the climate risk index - main regressor}
+
+The National Center for Prevention of Disasters (CENAPRED) publishes data on the number of emergencies, disasters and climatic contingencies for every year and municipality.\cite{CENAPRED2024} This information is collected trough analysis of the government's official newspaper, which among other things publishes any declarations of emergency for one or more municipalities by the federal government. Such a declaration of emergency follows the presence of a severe disturbing natural agent in certain municipalities or delegations of one or more federal entities, whose damage exceeds the local financial and operational capacity. Declaring this emergency is necessary in order to be able to access resources of the financial instrument for the care of natural disasters, such as the Natural Disasters Fund.
+
+This data is available from 2000 to 2024 on a municipality level. During pre-processing the current municipality codes used by the CENAPRED data are matched to the harmonized version used by IPUMS. While a small amount of information is lost here, as IPUMS combines some municipalities, this greatly facilitates further analysis. The disaster data are aggregated to five year intervals, to match the census time intervals. This means that the effect of all events recorded e.g. during 2001 and 2005 are attributed to the 2005 census. As the census in 2005 captures all movement between 2000 and 2005, the idea behind this is that events recorded between 2000 and and 2005 also influence migration in this time period. This of course is an oversimplification - a tropical storm that hit land on the 31st december of 2005 may very well only start having an effect on migration in 2006 or later. Furthermore, as the dataset conveniently also records the type of event a counter is added for each, enabling more nuanced inference.
+
+
+\begin{table}[!h]
+\centering
+\caption{Summary statistics (municipality-year level)}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{threeparttable}
+\begin{tabular}[t]{lrrrrr}
+\toprule
+Variable & N & Mean (SD) & Median & Min & Max\\
+\midrule
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{Panel A: Migration outcomes}}\\
+\hspace{1em}Period Immigration & 6975 & 2512.33 (11059.83) & 344.00 & 0.00 & 276699.00\\
+\hspace{1em}Period Emmigration & 6975 & 2512.33 (13784.52) & 386.00 & 0.00 & 483051.00\\
+\hspace{1em}Net Immigration & 6975 & 0.00 (8410.35) & -4.00 & -219655.00 & 113326.00\\
+\hspace{1em}Immigration Rate & 6975 & 0.04 (0.03) & 0.03 & 0.00 & 0.67\\
+\hspace{1em}Emmigration Rate & 6975 & 0.04 (0.05) & 0.03 & 0.00 & 2.10\\
+\hspace{1em}Net Immigration Rate & 6975 & -0.00 (0.06) & -0.00 & -2.06 & 0.66\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{Panel B: Disaster exposure}}\\
+\hspace{1em}Total Unique Disasters (Period) & 6975 & 3.79 (4.79) & 2.00 & 0.00 & 86.00\\
+\hspace{1em}Total Disasters (Period) & 6975 & 3.26 (4.02) & 2.00 & 0.00 & 78.00\\
+\addlinespace[0.3em]
+\multicolumn{6}{l}{\textbf{Panel C: Controls}}\\
+\hspace{1em}Mean Income & 6965 & 3313.14 (2378.09) & 2941.76 & 34.95 & 39125.43\\
+\hspace{1em}Mean Age & 6975 & 30.99 (3.71) & 30.66 & 20.24 & 48.91\\
+\hspace{1em}Female Rate & 6975 & 0.51 (0.02) & 0.51 & 0.43 & 0.61\\
+\hspace{1em}Literacy Rate & 6966 & 0.86 (0.08) & 0.88 & 0.42 & 1.00\\
+\hspace{1em}Mean Years of Schooling & 6966 & 6.08 (1.28) & 6.01 & 2.07 & 12.62\\
+\hspace{1em}Municipal Population & 6975 & 51188.19 (200573.91) & 12704.00 & 76.00 & 5413803.00\\
+\hspace{1em}Population Density & 6975 & 219.80 (719.69) & 51.75 & 0.11 & 10714.21\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\item \textit{Notes: } 
+\item Unit of observation is municipality-year. N reports non-missing observations.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
