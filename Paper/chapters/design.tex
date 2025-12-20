@@ -1,4 +1,5 @@
-\subsection{Empirical Strategy}
+\subsection{TWFE}
+\subsubsection{Empirical Strategy}
 To identify the medium run effect of extreme events on in-and out migration in Mexican municipality this seminar paper uses a municipality level panel data design. This approach exploits variation in exposure to extreme climate events within municipalities over time, while controlling for unobserved heterogeneity across space and common shocks across periods.\\
 
 The core identification strategy relies on a two-way fixed effects (TWFE) panel regression, where migration outcomes are regressed on climate shock exposure, while controlling for time-varying socioeconomic characteristics and fixed effects at the municipality and time period level (Dell, Jones, and Olken 2014; Burke, Hsiang, and Miguel 2015).
@@ -15,7 +16,7 @@ Estimates $\beta$ only from within-municipality deviations over time, net of nat
 
 The unit of analysis is a municipality-period observation, where periods correspond to three five-year census intervals (2005-2010, 2010-2015 and 2015-2020). \textbf{This long time period allows the estimation of an empirical model that can disentangle effects of cyclical trends from the effects of climate anomalies}. As outlined in section 2.1. the migration outcomes are constructed by aggregating origin-destination flows from Mexican census micro data into municipality-level measures of in-, out- and net-migration. The climate data that is originally observed in smaller time intervals is aggregated to fit the five-year periods of the census, to ensure appropriate temporal alignment with the migration data.
 
-\subsection{Identification Strategy}
+\subsubsection{Identification Strategy}
 The main estimating regression is the following two-way-fixed-effects model:
 $$Migration_{it} = \beta\text{ClimateShock}_{it} + \gamma X_{it} + \mu_i + \rho_t + \epsilon_{it}$$
 where:\\
@@ -28,7 +29,15 @@ $\epsilon_{it}$ is an idiosyncratic error term.
 
 Standard errors are clustered at the municipality level to account for serial correlation in climate exposure and migration outcomes within municipalities across time periods. Allowing and controlling for both heteroskedasticity and autocorrelation within municipalities (across time) ensures that standard errors are not underestimated. In addition Table X reports results with Standard Errors computed using Conley (1999) to account for spatial correlation in the error term across neighboring municipalities. This might be relevant, since large scale extreme weather events (such as tropical cyclones) often disrupt regional (not only municipal) outcomes. Migration responses to these disasters might thus exhibit spillover effects because of e.g. shared labor markets or infrastructure across municipality borders. 
 
-\subsection{Potential problems and solutions - i.e. explanation of different regression versions}
+\subsubsection{Key identifying assumptions}
+
+The key identifying assumption for the TWFE-model outlined above is that, conditional on the fixed effects and observed controls, extreme weather exposure within municipalities is exogenous to other time-varying municipality-level factors that affect migration patterns. Specifically, the model assumes that there are no unobserved shocks that both vary over time within municipalities and are correlated with disaster occurrence. Examples where this could be violated are policy changes in municipalities that improve their capacity of handling extreme weather events or investment in preventive measures. 
+
+Importantly, this approach differs significantly from the standard TWFE approach, that unless very strict criteria are met, suffers from negative weighting problems and bias (Goodman-Bacon 2021). In standard TWFE models treatment is usually binary and represents the occurrence of a one-time shock. The treatment used in this paper is modeling climate exposure as a (quasi-) continuous and recurrent shock-variable, greatly mitigating the concerns related to heterogeneous treatment timing in different geographic regions. 
+
+Although the usual concerns about bias do not directly apply here, the estimates should be interpreted as reduced-form effects that capture the combined influence of the actual direct physical risk of the climate events, economic losses and also indirect social responses to climate shocks. Although information about the reason for migration is provided for some iterations of the mexican census, the amount of observations where this was actually reported do not provide enough statistical power for estimation. 
+
+\subsubsection{Potential problems and solutions - i.e. explanation of different regression versions}
 
 One of the issues that is due to the periodical nature of census-migration data is that the disaster data has to be aggregated to five year intervals. This makes interpretation more difficult, as the data only provides information about how migration and disasters happened "sometime in the last five years", not when exactly. A tropical storm towards the end of a time period could for example have considerable consequences for migration in the next time period. There are two ways to address this: Firstly, the interpretation of the coefficients should be seen as capturing the average medium-run effects of disasters on migration, rather than short-term effects. Second, by shifting the time periods to which disasters are assigned to provide an additional robustness check.
 
@@ -36,10 +45,16 @@ Another key-concern is that municipalities may follow long-run economic or demog
 
 Interaction terms are included in the analysis to allow the effect of climate shocks to vary with local socioeconomic conditions. These interaction terms provide information about the influence of different backgrounds of municipalities. For example, interacting storm exposure with income per capita provides information aoubt whether wealthier municipalities exhibit greateer resilience to climate shocks.
 
-\subsection{Key identifying assumptions}
 
-The key identifying assumption for the TWFE-model outlined above is that, conditional on the fixed effects and observed controls, extreme weather exposure within municipalities is exogenous to other time-varying municipality-level factors that affect migration patterns. Specifically, the model assumes that there are no unobserved shocks that both vary over time within municipalities and are correlated with disaster occurrence. Examples where this could be violated are policy changes in municipalities that improve their capacity of handling extreme weather events or investment in preventive measures. 
+\subsection{PPML model}
+\subsubsection{Empirical strategy}
 
-Importantly, this approach differs significantly from the standard TWFE approach, that unless very strict criteria are met, suffers from negative weighting problems and bias (Goodman-Bacon 2021). In standard TWFE models treatment is usually binary and represents the occurrence of a one-time shock. The treatment used in this paper is modeling climate exposure as a (quasi-) continuous and recurrent shock-variable, greatly mitigating the concerns related to heterogeneous treatment timing in different geographic regions. 
 
-Although the usual concerns about bias do not directly apply here, the estimates should be interpreted as reduced-form effects that capture the combined influence of the actual direct physical risk of the climate events, economic losses and also indirect social responses to climate shocks. Although information about the reason for migration is provided for some iterations of the mexican census, the amount of observations where this was actually reported do not provide enough statistical power for estimation. 
+\subsubsection{Identification Strategy}
+
+
+\subsubsection{Key identifying assumptions}
+
+
+
+\subsubsection{Limitations}
