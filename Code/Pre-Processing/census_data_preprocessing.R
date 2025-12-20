@@ -14,7 +14,6 @@ census_data_raw <- read_ipums_micro(census_ddi)
 state_nodes_preprocess <- census_data_raw %>%
   janitor::clean_names() %>%
   select(perwt, hhwt, geolev1, year, incearn, popdensgeo2, areamollwgeo2) %>%
-  filter(year == 2020) %>%
   mutate(
     popdensgeo2 = ifelse(popdensgeo2 == 0, NA_real_, popdensgeo2),
     areamollwgeo2 = ifelse(areamollwgeo2 == 0, NA_real_, areamollwgeo2),
@@ -24,7 +23,6 @@ state_nodes_preprocess <- census_data_raw %>%
   group_by(geolev1, year) %>%
   summarise(
     mean_inc = weighted.mean(incearn, perwt, na.rm = TRUE),
-    mun_pop = first(mun_pop),
     state_pop = sum(mun_pop),
     .groups = "drop"
   )
@@ -35,6 +33,12 @@ rm(state_nodes_preprocess)
 gc()
 
 #### Formatting NAs correctly for geolevel2 ####
+na_pre_geolevel2 <- sum(is.na(census_data_raw$GEOLEV2))
+na_pre_mig2_5_mx <- sum(is.na(census_data_raw$MIG2_5_MX))
+
+cat("There are ", na_pre_geolevel2, " NAs in geolevel2 in the raw data\n")
+cat("There are ", na_pre_mig2_5_mx, " NAs in mig2_5_mx in the raw data\n")
+
 census_data <- census_data_raw %>%
   janitor::clean_names() %>%
   rename(geolevel2 = geolev2, geolevel1 = geolev1) %>%
@@ -62,13 +66,20 @@ census_data <- census_data_raw %>%
       "484013998", "484014998", "484015998", "484016998", "484017998", "484018998",
       "484019998", "484020998", "484021998", "484022998", "484023998", "484024998",
       "484025998", "484026998", "484027998", "484028998", "484029998", "484030998",
-      "484098997", "484098998", "484098999", "484099999"
+      "484031998", "484032999", "484097997", "484098998", "484099999"
       ),
       NA_character_,
       mig2_5_mx
     )
   )
-  
+
+na_post_geolevel2 <- sum(is.na(census_data$geolevel2))
+na_post_mig2_5_mx <- sum(is.na(census_data$mig2_5_mx))
+
+cat("There are ", na_post_geolevel2, " NAs in geolevel2 in the transformed data\n")
+cat("There are ", na_post_mig2_5_mx, " NAs in mig2_5_mx in the transformed data\n")
+cat("Transformation added ", na_post_geolevel2 - na_pre_geolevel2, "NAs in geolevel2\n")
+cat("Transformation added ", na_post_mig2_5_mx - na_pre_mig2_5_mx, "NAs in mig2_5_mx\n")
 
 rm(census_data_raw)
 gc()
@@ -83,7 +94,7 @@ gc()
 unique_geolevels <- unique(census_data$geolevel2)
   
 # Process in chunks
-chunk_size <- 10  # Adjust based on memory - i.e. if R crashes because working memory is not enough, lower this number!
+chunk_size <- 100  # Adjust based on memory - i.e. if R crashes because working memory is not enough, lower this number!
 n_chunks <- ceiling(length(unique_geolevels) / chunk_size)
 
 results_list <- list()
@@ -97,19 +108,24 @@ for(i in 1:n_chunks) {
   chunk_result <- census_data %>%
     filter(geolevel2 %in% geolevels_chunk) %>%  
     mutate(
-      # Recode data to indicate non-valid entries as NAs - do all at once
-      incearn = ifelse(incearn %in% c(99999999, 99999998), NA_real_, incearn),
+      # Recode data to indicate non-valid entries as NAs
+      incearn_clean = ifelse(incearn %in% c(99999999, 99999998), NA_real_, incearn),
+      # Add topcode indicator for income
+      incearn_topcode = ifelse(!is.na(incearn_clean) & incearn == 1000000, 1, 0),
+      incearn_log1p = ifelse(is.na(incearn_clean), NA_real_, log1p(incearn_clean)),
       age = ifelse(age == 999, NA_real_, age),
       sex = ifelse(sex == 9, NA_real_, ifelse(sex == 2, 1, 0)),
       lit = ifelse(lit %in% c(0, 9), NA_real_, ifelse(lit == 2, 1, 0)),
-      yrschool = as.integer(yrschool),
-      popdensgeo2 = ifelse(popdensgeo2 == 0, NA_real_, popdensgeo2),
+      yrschool = ifelse(yrschool %in% c(90, 91, 92, 93, 94, 95, 96, 97, 98, 99), NA_real_, yrschool)
     ) %>%
     group_by(geolevel2, year) %>%
     summarise(
+      n = n(),
       geolevel1 = first(geolevel1),
-      mean_inc = weighted.mean(incearn, perwt, na.rm = TRUE),
-      popdensgeo2 = first(popdensgeo2),
+      mean_inc = weighted.mean(incearn_clean, perwt, na.rm = TRUE),
+      mean_incearn_log1p = weighted.mean(incearn_log1p, perwt, na.rm = TRUE),
+      share_incearn_topcode = mean(incearn_topcode[!is.na(incearn_clean)], na.rm = TRUE),
+      popdensgeo2 = max(popdensgeo2, na.rm = TRUE),
       mean_age = weighted.mean(age, perwt, na.rm = TRUE),
       rate_female = weighted.mean(sex, perwt, na.rm = TRUE),
       rate_literacy = weighted.mean(lit, perwt, na.rm = TRUE),

@@ -7,6 +7,8 @@ library(sf)
 # Movement Data
 movement_data_raw <- read_csv("Data/Meta Movement Distribution/movement-distribution-data-for-good-at-meta_2023-05-01_2023-06-01_csv/1922039342088483_2023-05-01.csv")
 
+# Calculate average for each month here
+
 # GADM Data
 gadm4 <- st_read("Data/GADM/gadm41_MEX.gpkg", layer = "ADM_ADM_2")
 gadm3 <- st_read("Data/GADM/gadm36_MEX.gpkg", layer = "gadm36_MEX_2")
@@ -23,10 +25,12 @@ ipums_sf_geo2 <- ipums_sf_geo2_raw %>%
 # Disaster data
 census_data_controls <- readRDS("Data/temp/census_data_controls.rds")
 cat("Loaded census cotrols data\n")
-disaster_indicator <- readRDS("Data/temp/disaster_indicator.rds")
+disaster_data_fb <- readRDS("Data/temp/disaster_data_fb.rds")
 cat("Loaded disaster indicator data\n")
 
 #### Create crosswalk between gadm and ipums sf
+
+## Crosswalk ##
 
 # Ensure both are in same CRS
 if (st_crs(gadm3) != st_crs(ipums_sf_geo2)) {
@@ -83,17 +87,51 @@ gadm_to_ipums <- crosswalk %>%
 low_overlap <- crosswalk %>%
   filter(overlap_pct_gadm < 90 & overlap_pct_ipums < 90)
 
+## Match it ##
+
 movement_data_matched <- movement_data_raw %>%
   filter(country == "MEX") %>%
+  pivot_wider(
+    names_from = home_to_ping_distance_category,
+    values_from = distance_category_ping_fraction,
+    names_glue  = "dist_{home_to_ping_distance_category}"
+  ) %>%
+  janitor::clean_names() %>%
+  mutate(month_year = format(ds, "%m/%Y")) %>%
+  group_by(gadm_id, month_year) %>%
+  summarise(
+    dist_0 = mean(dist_0, na.rm = TRUE),
+    dist_0_10 = mean(dist_0_10, na.rm = TRUE),
+    dist_10_100 = mean(dist_10_100, na.rm = TRUE),
+    dist_100 = mean(dist_100, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
   # As each gadm matches multiple ipums and the other way around there will be a many-to-many relationship
   # When merged with other data this needs to be aggregated properly (probably group by gadm)
   left_join(crosswalk, by = c("gadm_id" = "gadm_id"), relationship = "many-to-many")
 
-# Merge with census and disaster data
+#### Merge with census and disaster data ####
 
 movement_data <- movement_data_matched %>%
-  left_join(disaster_data, by = c("geolevel2" = "geolevel2")) %>%
-  group_by(gadm_id) %>%
+  left_join(disaster_data_fb, by = c("ipums_id" = "geolevel2", "month_year" = "month_year"), relationship = "many-to-many") %>%
+  group_by(gadm_id, month_year) %>%
   summarise(
-
+    # grouping gets rid of the situation where one gadm matches many ipums
+    # weighing with overlap percentage controls for the situation where one gadm is only a part of one ipums 
+    count_drought = sum(count_drought * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_forest_fire = sum(count_forest_fire * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_rainfall = sum(count_rainfall * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_tropical_cyclone = sum(count_tropical_cyclone * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_frosts = sum(count_frosts * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_flood = sum(count_flood * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_earthquake = sum(count_earthquake * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_snowfalls = sum(count_snowfalls * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_tornado = sum(count_tornado * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_landslide = sum(count_landslide * overlap_pct_ipums / 100, na.rm = TRUE),
+    count_hail = sum(count_hail * overlap_pct_ipums / 100, na.rm = TRUE),       
+    count_extreme_temperature = sum(count_extreme_temperature * overlap_pct_ipums / 100, na.rm = TRUE),
+    total_disasters_month = sum(total_disasters_month * overlap_pct_ipums / 100, na.rm = TRUE),
+    .groups = "drop"       
   )
+
+saveRDS(movement_data, "Data/temp/movement_data")
