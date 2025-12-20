@@ -23,7 +23,7 @@ census_sf_geo2_raw <- read_ipums_sf("Data/IPUMS/shapefiles/geo2_mx1960_2020/geo2
 cat("Loaded spatial data\n")
 
 census_sf_geo1 <- census_sf_geo1_raw %>% 
-  select(ADMIN_NAME, GEOLEVEL1, geometry) %>%
+  select(ADMIN_NAME, GEOLEVEL1, geometry) %>% 
   janitor::clean_names()
 
 rm(census_sf_geo1_raw)
@@ -84,7 +84,7 @@ gc()
 cat("Generating edges data frame\n")
 
 # Edges Data Frame: Origin-destination (OD) matrix
-od_edges <- census_data %>%
+od_edges_raw <- census_data %>%
   select(year, hhwt, perwt, geolevel1, geolevel2, geomig1_5, mig1_5_mx, mig2_5_mx) %>%
   mutate(mig2_5_mx = as.character(mig2_5_mx)) %>%
   filter(!is.na(mig2_5_mx)) %>%
@@ -106,6 +106,16 @@ od_edges <- census_data %>%
     .groups = "drop"
   )
 
+od_edges <- od_edges_raw %>%
+  mutate(geolevel2 = as.character(geolevel2)) %>%
+  # Columns with .x are orgin, .y are destination
+  # Add controls for origin
+  left_join(census_data_controls, by = c("mig2_5_mx" = "geolevel2", "year_census" = "year")) %>%
+  # Add controls for destination
+  left_join(census_data_controls, by = c("geolevel2" = "geolevel2", "year_census" = "year")) %>%
+  # Add disaster information for origin
+  left_join(disaster_indicator, by = c("mig2_5_mx" = "geolevel2", "year_census" = "year_census"))
+
 saveRDS(od_edges, "Data/temp/od_edges.rds")
 cat("Generated and saved edges data\n")
 rm(census_data)
@@ -116,7 +126,7 @@ cat("Adding migration information to nodes\n")
 
 # Data indicating where people went
 # Each row gives the amount of people who migrated TO geolevel2 in year_census
-od_dest <- od_edges %>%
+od_dest <- od_edges_raw %>%
   group_by(year_census, geolevel2) %>%
   mutate(geolevel2 = as.character(geolevel2)) %>%
   summarise(
@@ -125,7 +135,7 @@ od_dest <- od_edges %>%
   )
 
 # Each row gives the amount of people who migrated FROM mig2_5_mx in year_census
-od_orig <- od_edges %>%
+od_orig <- od_edges_raw %>%
   group_by(year_census, mig2_5_mx) %>%
   mutate(mig2_5_mx = as.character(mig2_5_mx)) %>%
   summarise(
@@ -133,7 +143,7 @@ od_orig <- od_edges %>%
     .groups = "drop"
   ) 
 
-rm(od_edges)
+rm(od_edges_raw)
 gc()
 
 # Merge and add net migration information

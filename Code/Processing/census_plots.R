@@ -294,78 +294,78 @@ table2 <- kable(
 
 income_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = mean_incearn_log1p)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Average Income by Municipality",
        x = "Municipality",
        y = "Average Income per Inhabitant")
-ggsave("Output/Plots/income_plot_municipality.png", income_plot, dpi = 700)
+ggsave("Output/Plots/income_plot_municipality.png", income_plot, height = 40)
 
 # Age 
 
 age_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = mean_age)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Average Age by Municipality",
        x = "Municipality",
        y = "Mean Age")
-ggsave("Output/Plots/age_plot_municipality.png", age_plot, dpi = 700)
+ggsave("Output/Plots/age_plot_municipality.png", age_plot, height = 40)
 
 # Female 
 
 female_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = rate_female)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Average Percent Female by Municipality",
        x = "Municipality",
        y = "Percent Females")
-ggsave("Output/Plots/female_plot_municipality.png", female_plot, dpi = 700)
+ggsave("Output/Plots/female_plot_municipality.png", female_plot, height = 40)
 
 # Literacy 
 
 literacy_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = rate_literacy)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Average Percent Literate by Municipality",
        x = "Municipality",
        y = "Percent Literate")
-ggsave("Output/Plots/literacy_plot_municipality.png", literacy_plot, dpi = 700)
+ggsave("Output/Plots/literacy_plot_municipality.png", literacy_plot, height = 40)
 
 # Schooling 
 
 schooling_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = mean_yrschool)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Average Years of Schooling by Municipality",
        x = "Municipality",
        y = "Average Years of Schooling")
-ggsave("Output/Plots/schooling_plot_municipality.png", schooling_plot, dpi = 700)
+ggsave("Output/Plots/schooling_plot_municipality.png", schooling_plot, height = 40)
 
 # Total Population 
 
 total_population_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = mun_pop)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Total Population by Municipality",
        x = "Municipality",
        y = "Total Population")
-ggsave("Output/Plots/total_population_plot_municipality.png", total_population_plot, dpi = 700)
+ggsave("Output/Plots/total_population_plot_municipality.png", total_population_plot, height = 40)
 
 # Population Density 
 
 population_density_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = popdensgeo2)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Average Population Density by Municipality",
        x = "Municipality",
        y = "Average Population Density")
-ggsave("Output/Plots/population_density_plot_municipality.png", population_density_plot, dpi = 700)
+ggsave("Output/Plots/population_density_plot_municipality.png", population_density_plot, height = 40)
 
 ########### Migration Plots #############
 
@@ -373,64 +373,64 @@ ggsave("Output/Plots/population_density_plot_municipality.png", population_densi
 
 immigration_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = period_immigration)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
        y = "Amount of Immigrants")
-ggsave("Output/Plots/immigration_plot_municipality.png", immigration_plot, dpi = 700)
+ggsave("Output/Plots/immigration_plot_municipality.png", immigration_plot, height = 40)
 
 # Emmigration
 
 emmigration_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = period_emmigration)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
        y = "Amount of Emmigrants")
-ggsave("Output/Plots/immigration_plot_municipality.png", emmigration_plot, dpi = 700)
+ggsave("Output/Plots/immigration_plot_municipality.png", emmigration_plot, height = 40)
 
 # Net Immigration
 
 net_immigration_plot <- ggplot(mun_nodes_sf) +
-  geom_sf(aes(fill = net_immigration_rate)) +
-  facet_wrap(~ year_census) +
+  geom_sf(aes(fill = net_immigration)) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
        y = "Net amount of Migrants")
-ggsave("Output/Plots/net_immigration_plot.png", net_immigration_plot, dpi = 700)
+ggsave("Output/Plots/net_immigration_plot.png", net_immigration_plot, height = 40)
 
 # Immigration Rate
 
 immigration_rate_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = net_immigration)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
        y = "Immigration rate (Immigrants / inhabitant)")
-ggsave("Output/Plots/immigration_rate_plot.png", immigration_rate_plot, dpi = 700)
+ggsave("Output/Plots/immigration_rate_plot.png", immigration_rate_plot, height = 40)
 
 # Emmigration Rate
 
 emmigration_rate_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = emmigration_rate)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Emmigration rate by Municipality",
        x = "Municipality",
        y = "Emmigration rate (Emmigrants / inhabitant)")
-ggsave("Output/Plots/emmigration_rate_plot.png", emmigration_rate_plot, dpi = 700)
+ggsave("Output/Plots/emmigration_rate_plot.png", emmigration_rate_plot, height = 40)
 
 # Net Immigration Rate
 
 net_immigration_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = net_immigration_rate)) +
-  facet_wrap(~ year_census) +
+  facet_wrap(~ year_census, nrow = 3) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Net Immigration rate by Municipality",
        x = "Municipality",
        y = "Net Immigration rate (Net Immigrants / inhabitant)")
-ggsave("Output/Plots/net_immigration_plot.png", net_immigration_plot, dpi = 700)
+ggsave("Output/Plots/net_immigration_plot.png", net_immigration_plot, height = 40)

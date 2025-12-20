@@ -8,7 +8,7 @@ library(data.table)
 
 #### Load Census Data ####
 
-census_ddi <- read_ipums_ddi("Data/IPUMS/Census_Data/ipumsi_00002.xml")
+census_ddi <- read_ipums_ddi("Data/IPUMS/Census_Data/ipumsi_00005.xml")
 census_data_raw <- read_ipums_micro(census_ddi)
 
 state_nodes_preprocess <- census_data_raw %>%
@@ -42,7 +42,7 @@ cat("There are ", na_pre_mig2_5_mx, " NAs in mig2_5_mx in the raw data\n")
 census_data <- census_data_raw %>%
   janitor::clean_names() %>%
   rename(geolevel2 = geolev2, geolevel1 = geolev1) %>%
-  select(year, perwt, hhwt, geolevel1, geolevel2, incearn, popdensgeo2, age, sex, lit, yrschool, geomig1_5, mig1_5_mx, mig2_5_mx, areamollwgeo2) %>%
+  select(year, perwt, hhwt, geolevel1, geolevel2, urban, incearn, popdensgeo2, age, sex, lit, yrschool, geomig1_5, mig1_5_mx, mig2_5_mx, areamollwgeo2) %>%
   mutate(
     geolevel2 = as.character(geolevel2),
     geolevel2 = if_else(
@@ -106,6 +106,7 @@ for(i in 1:n_chunks) {
   geolevels_chunk <- unique_geolevels[start_idx:end_idx]
 
   chunk_result <- census_data %>%
+  # Note to myself don't filter the invalid municipality codes out here. This could introduce selection bias into the demographic controls - just leave it like this
     filter(geolevel2 %in% geolevels_chunk) %>%  
     mutate(
       # Recode data to indicate non-valid entries as NAs
@@ -116,7 +117,8 @@ for(i in 1:n_chunks) {
       age = ifelse(age == 999, NA_real_, age),
       sex = ifelse(sex == 9, NA_real_, ifelse(sex == 2, 1, 0)),
       lit = ifelse(lit %in% c(0, 9), NA_real_, ifelse(lit == 2, 1, 0)),
-      yrschool = ifelse(yrschool %in% c(90, 91, 92, 93, 94, 95, 96, 97, 98, 99), NA_real_, yrschool)
+      yrschool = ifelse(yrschool %in% c(90, 91, 92, 93, 94, 95, 96, 97, 98, 99), NA_real_, yrschool),
+      urban = ifelse(urban == 9, NA_real_, ifelse(urban == 2, 1, 0))
     ) %>%
     group_by(geolevel2, year) %>%
     summarise(
@@ -131,6 +133,7 @@ for(i in 1:n_chunks) {
       rate_literacy = weighted.mean(lit, perwt, na.rm = TRUE),
       mean_yrschool = weighted.mean(yrschool, perwt, na.rm = TRUE),
       mun_pop = sum(perwt, na.rm = TRUE),
+      mean_urban = weighted.mean(urban, hhwt, na.rm = TRUE),
       .groups = "drop"
     )
 
