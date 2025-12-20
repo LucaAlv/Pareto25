@@ -6,7 +6,6 @@ library(rnaturalearthdata)
 library(viridis)
 library(knitr)
 library(kableExtra)
-library(stargazer)
 
 state_nodes_pre <- readRDS("Data/temp/state_nodes_preprocess.rds")
 mun_nodes <- readRDS("Data/temp/mun_nodes.rds")
@@ -20,19 +19,37 @@ state_nodes_nosf <- st_drop_geometry(state_nodes)
 
 ########### Municipality Tables #############
 
-#### Table 1 ####
+#### Variable Name Mapping ####
 
-## Create dataset for summary statistics table ##
+# Create a mapping for pretty variable names
+var_labels <- c(
+  "period_immigration" = "Period Immigration",
+  "period_emmigration" = "Period Emmigration",
+  "net_immigration" = "Net Immigration",
+  "net_immigration_rate" = "Net Immigration Rate",
+  "immigration_rate" = "Immigration Rate",
+  "emmigration_rate" = "Emmigration Rate",
+  "total_unique_disasters_period" = "Total Unique Disasters (Period)",
+  "total_disasters_period" = "Total Disasters (Period)",
+  "mean_inc" = "Mean Income",
+  "popdensgeo2" = "Population Density",
+  "mean_age" = "Mean Age",
+  "rate_female" = "Female Rate",
+  "rate_literacy" = "Literacy Rate",
+  "mean_yrschool" = "Mean Years of Schooling",
+  "mun_pop" = "Municipal Population"
+)
 
-# Variables for panels
+#### Table 1: Overall Summary Statistics ####
+
+# Define variable groups
 outcomes <- c(
   "period_immigration", "period_emmigration", "net_immigration",
-  "net_immigration_rate", "immigration_rate", "emmigration_rate"
+  "immigration_rate", "emmigration_rate", "net_immigration_rate"
 )
 
 disasters <- c(
   "total_unique_disasters_period", "total_disasters_period"
-  # optionally add selected hazard counts here, e.g. "count_flood", "count_drought"
 )
 
 controls <- c(
@@ -42,7 +59,7 @@ controls <- c(
 
 vars <- c(outcomes, disasters, controls)
 
-# function to compute summary stats 
+# Function to compute summary statistics
 one_var_stats <- function(x) {
   x <- x[!is.na(x)]
   tibble(
@@ -55,7 +72,7 @@ one_var_stats <- function(x) {
   )
 }
 
-# prepare data for table
+# Prepare data for table
 sumtab <- mun_nodes_nosf %>%
   select(all_of(vars)) %>%
   pivot_longer(everything(), names_to = "Variable", values_to = "value") %>%
@@ -68,35 +85,46 @@ sumtab <- mun_nodes_nosf %>%
       Variable %in% controls ~ "Panel C: Controls",
       TRUE ~ "Other"
     ),
-    # nice formatting columns (adjust decimals if you want)
     `Mean (SD)` = sprintf("%.2f (%.2f)", Mean, SD),
-    `Median` = sprintf("%.2f", Median),
+    Median = sprintf("%.2f", Median),
     Min = sprintf("%.2f", Min),
-    Max = sprintf("%.2f", Max)
+    Max = sprintf("%.2f", Max),
+    # Rename variables using the mapping
+    Variable = recode(Variable, !!!var_labels)
   ) %>%
-  select(Panel, Variable, N, `Mean (SD)`, `Median`, Min, Max) %>%
+  select(Panel, Variable, N, `Mean (SD)`, Median, Min, Max) %>%
   arrange(
     factor(Panel, levels = c(
       "Panel A: Migration outcomes",
       "Panel B: Disaster exposure",
       "Panel C: Controls"
     )),
-    Variable
+    # Custom order for variables within each panel
+    factor(Variable, levels = c(
+      # Panel A order
+      "Period Immigration", "Period Emmigration", "Net Immigration",
+      "Immigration Rate", "Emmigration Rate", "Net Immigration Rate",
+      # Panel B variables (will maintain their order)
+      "Total Unique Disasters (Period)", "Total Disasters (Period)",
+      # Panel C variables (will maintain their order)
+      "Mean Income", "Mean Age", "Female Rate", "Literacy Rate", 
+      "Mean Years of Schooling", "Municipal Population", "Population Density"
+    ))
   )
 
-# create the indices for the panels
+# Create panel indices
 idxA <- which(sumtab$Panel == "Panel A: Migration outcomes")
 idxB <- which(sumtab$Panel == "Panel B: Disaster exposure")
 idxC <- which(sumtab$Panel == "Panel C: Controls")
 
-# Convert to latex
-sumtab %>%
+# Generate LaTeX table
+table1 <- sumtab %>%
   select(-Panel) %>%
   kable(
     format = "latex",
     booktabs = TRUE,
     longtable = FALSE,
-    caption = "Summary statistics (municipality--year level)",
+    caption = "Summary statistics (municipality-year level)",
     col.names = c("Variable", "N", "Mean (SD)", "Median", "Min", "Max"),
     align = c("l", "r", "r", "r", "r", "r"),
     escape = TRUE
@@ -110,65 +138,63 @@ sumtab %>%
   pack_rows("Panel C: Controls", min(idxC), max(idxC), bold = TRUE) %>%
   footnote(
     general = paste(
-      "Unit of observation is municipality--year.",
+      "Unit of observation is municipality-year.",
       "N reports non-missing observations."
     ),
     general_title = "Notes: ",
     threeparttable = TRUE
   )
 
-#### Table 1A ####
+
+#### Table 1A: Summary Statistics by Period ####
 
 period_var <- "year_census"
 
-cell_mean_sd <- function(x, digits = 2) {
-  x <- x[!is.na(x)]
-  if (length(x) == 0) return(NA_character_)
-  sprintf(paste0("%.", digits, "f (%.", digits, "f)"), mean(x), sd(x))
-}
-
+# Helper functions
 n_nonmiss <- function(x) sum(!is.na(x))
 
-
-## Set up dataset for table 
-
+# Calculate mean and SD by period
 mean_sd_by_period <- mun_nodes_nosf %>%
   select(all_of(c(period_var, vars))) %>%
-  pivot_longer(cols = all_of(vars), names_to = "Variable", values_to = "value") %>%
+  pivot_longer(cols = all_of(vars),
+               names_to = "Variable",
+               values_to = "value") %>%
   group_by(Variable, Period = .data[[period_var]]) %>%
   summarise(
-    N = n_nonmiss(value),
-    MeanSD = cell_mean_sd(value, digits = 2),
+    Mean = mean(value, na.rm = TRUE),
+    SD = sd(value, na.rm = TRUE),
     .groups = "drop"
   )
 
-# Make a wide table with Mean(SD) columns for each period
+# Get periods for ordering
+periods <- sort(unique(mean_sd_by_period$Period))
+
+# Make wide table with Mean and SD columns for each period
 wide_meansd <- mean_sd_by_period %>%
-  select(Variable, Period, MeanSD) %>%
-  mutate(Period = as.character(Period)) %>%
-  pivot_wider(names_from = Period, values_from = MeanSD)
+  mutate(
+    # Round Mean and SD to 2 decimal places
+    Mean = round(Mean, 2),
+    SD = round(SD, 2)
+  ) %>%
+  pivot_wider(
+    names_from = Period,
+    values_from = c(Mean, SD),
+    names_glue = "{Period}_{.value}"
+  )
 
-# Add an overall (All) column
-wide_all <- mun_nodes_nosf %>%
-  select(all_of(vars)) %>%
-  pivot_longer(everything(), names_to = "Variable", values_to = "value") %>%
-  group_by(Variable) %>%
-  summarise(All = cell_mean_sd(value, digits = 2), .groups = "drop")
-
-# Add an N column (overall non-missing)
+# Calculate overall N for each variable
 wide_n <- mun_nodes_nosf %>%
   select(all_of(vars)) %>%
   pivot_longer(everything(), names_to = "Variable", values_to = "value") %>%
   group_by(Variable) %>%
   summarise(N = n_nonmiss(value), .groups = "drop")
 
+# Combine into summary table
 sumtab <- wide_meansd %>%
-  left_join(wide_all, by = "Variable") %>%
   left_join(wide_n, by = "Variable") %>%
-  relocate(N, .after = Variable) %>%
-  relocate(All, .after = N)
+  relocate(N, .after = Variable)
 
-## Add panels and sort ##
+# Add panels and sort
 sumtab <- sumtab %>%
   mutate(
     Panel = case_when(
@@ -176,7 +202,9 @@ sumtab <- sumtab %>%
       Variable %in% disasters ~ "Panel B: Disaster exposure",
       Variable %in% controls ~ "Panel C: Controls",
       TRUE ~ "Other"
-    )
+    ),
+    # Rename variables using the mapping
+    Variable = recode(Variable, !!!var_labels)
   ) %>%
   arrange(
     factor(Panel, levels = c(
@@ -184,29 +212,65 @@ sumtab <- sumtab %>%
       "Panel B: Disaster exposure",
       "Panel C: Controls"
     )),
-    Variable
+    # Custom order for variables within each panel
+    factor(Variable, levels = c(
+      # Panel A order
+      "Period Immigration", "Period Emmigration", "Net Immigration",
+      "Immigration Rate", "Emmigration Rate", "Net Immigration Rate",
+      # Panel B variables (will maintain their order)
+      "Total Unique Disasters (Period)", "Total Disasters (Period)",
+      # Panel C variables (will maintain their order)
+      "Mean Income", "Mean Age", "Female Rate", "Literacy Rate", 
+      "Mean Years of Schooling", "Municipal Population", "Population Density"
+    ))
   )
 
-period_cols <- setdiff(names(sumtab), c("Panel", "Variable", "N", "All"))
-
-# Indices for panels
+# Create panel indices
 idxA <- which(sumtab$Panel == "Panel A: Migration outcomes")
 idxB <- which(sumtab$Panel == "Panel B: Disaster exposure")
 idxC <- which(sumtab$Panel == "Panel C: Controls")
 
-# Print table
+# Get period-stat columns and order them properly
+period_cols <- names(sumtab)[grepl("_(Mean|SD)$", names(sumtab))]
 
+# Extract period and stat type from column names
+get_period <- function(x) as.numeric(sub("_(Mean|SD)$", "", x))
+get_stat <- function(x) sub("^.*_(Mean|SD)$", "\\1", x)
+
+# Order by period, then Mean before SD
+period_cols <- period_cols[order(
+  get_period(period_cols),
+  match(get_stat(period_cols), c("Mean", "SD"))
+)]
+
+# Prepare table for printing
 sumtab_print <- sumtab %>%
-  select(-Panel) 
+  select(Variable, N, all_of(period_cols))
 
-kable(
-  sumtab,
+# Create column headers
+periods_chr <- as.character(sort(unique(get_period(period_cols))))
+
+# Top header: period labels spanning Mean and SD columns
+header_top <- c(" " = 2, setNames(rep(2, length(periods_chr)), periods_chr))
+
+# Bottom header: Mean and SD labels
+header_bottom <- c("Variable" = 1, "N" = 1, 
+                   rep(c("Mean", "SD"), times = length(periods_chr)))
+
+# Alignment vector
+align_vec <- c("l", "r", rep(c("r", "r"), length(periods_chr)))
+
+# Generate LaTeX table
+table2 <- kable(
+  sumtab_print,
   format = "latex",
   booktabs = TRUE,
-  caption = "Summary statistics by period (Mean (SD))",
-  align = "l",
+  caption = "Summary statistics by period",
+  align = align_vec,
+  col.names = c("Variable", "N", rep(c("Mean", "SD"), length(periods_chr))),
   escape = TRUE
 ) %>%
+  add_header_above(header_top) %>%
   kable_styling(
     latex_options = c("hold_position", "scale_down"),
     font_size = 8
@@ -216,8 +280,8 @@ kable(
   pack_rows("Panel C: Controls", min(idxC), max(idxC), bold = TRUE) %>%
   footnote(
     general = paste(
-      "Unit of observation is municipality--year.",
-      "Cells report Mean (SD).",
+      "Unit of observation is municipality-year.",
+      "Cells report means and standard deviations.",
       "N is the number of non-missing observations."
     ),
     general_title = "Notes: ",
@@ -232,10 +296,76 @@ income_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = mean_incearn_log1p)) +
   facet_wrap(~ year_census) +
   scale_fill_distiller(palette="RdYlGn") +
-  labs(title = "Income by Municipality",
+  labs(title = "Average Income by Municipality",
        x = "Municipality",
-       y = "Income per Inhabitant")
-ggsave("Output/Plots/income_plot_municipality.png", income_plot, width = 14, height = 14)
+       y = "Average Income per Inhabitant")
+ggsave("Output/Plots/income_plot_municipality.png", income_plot, dpi = 700)
+
+# Age 
+
+age_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = mean_age)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Average Age by Municipality",
+       x = "Municipality",
+       y = "Mean Age")
+ggsave("Output/Plots/age_plot_municipality.png", age_plot, dpi = 700)
+
+# Female 
+
+female_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = rate_female)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Average Percent Female by Municipality",
+       x = "Municipality",
+       y = "Percent Females")
+ggsave("Output/Plots/female_plot_municipality.png", female_plot, dpi = 700)
+
+# Literacy 
+
+literacy_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = rate_literacy)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Average Percent Literate by Municipality",
+       x = "Municipality",
+       y = "Percent Literate")
+ggsave("Output/Plots/literacy_plot_municipality.png", literacy_plot, dpi = 700)
+
+# Schooling 
+
+schooling_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = mean_yrschool)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Average Years of Schooling by Municipality",
+       x = "Municipality",
+       y = "Average Years of Schooling")
+ggsave("Output/Plots/schooling_plot_municipality.png", schooling_plot, dpi = 700)
+
+# Total Population 
+
+total_population_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = mun_pop)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Total Population by Municipality",
+       x = "Municipality",
+       y = "Total Population")
+ggsave("Output/Plots/total_population_plot_municipality.png", total_population_plot, dpi = 700)
+
+# Population Density 
+
+population_density_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = popdensgeo2)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Average Population Density by Municipality",
+       x = "Municipality",
+       y = "Average Population Density")
+ggsave("Output/Plots/population_density_plot_municipality.png", population_density_plot, dpi = 700)
 
 ########### Migration Plots #############
 
@@ -247,8 +377,8 @@ immigration_plot <- ggplot(mun_nodes_sf) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
-       y = "Amount of Immigrants per Inhabitant")
-ggsave("Output/Plots/immigration_plot_municipality.png", immigration_plot)
+       y = "Amount of Immigrants")
+ggsave("Output/Plots/immigration_plot_municipality.png", immigration_plot, dpi = 700)
 
 # Emmigration
 
@@ -258,38 +388,49 @@ emmigration_plot <- ggplot(mun_nodes_sf) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
-       y = "Amount of Emmigrants per Inhabitant")
-ggsave("Output/Plots/immigration_plot_municipality.png", emmigration_plot)
+       y = "Amount of Emmigrants")
+ggsave("Output/Plots/immigration_plot_municipality.png", emmigration_plot, dpi = 700)
 
-# Net Migration
+# Net Immigration
 
-net_migration_plot <- ggplot(mun_nodes_sf) +
+net_immigration_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = net_immigration_rate)) +
   facet_wrap(~ year_census) +
   scale_fill_distiller(palette="RdYlGn") +
   labs(title = "Immigration rate by Municipality",
        x = "Municipality",
-       y = "Net amount of Migrants per Inhabitant")
-ggsave("Output/Plots/net_migration_plot_municipality.png", net_migration_plot, width = 14, height = 14)
+       y = "Net amount of Migrants")
+ggsave("Output/Plots/net_immigration_plot.png", net_immigration_plot, dpi = 700)
 
-net_migration_plot_states <- ggplot(state_nodes_sf) +
+# Immigration Rate
+
+immigration_rate_plot <- ggplot(mun_nodes_sf) +
   geom_sf(aes(fill = net_immigration)) +
   facet_wrap(~ year_census) +
   scale_fill_distiller(palette="RdYlGn") +
-  labs(title = "Immigration rate by State",
-       x = "State",
-       y = "Net amount of Migrants per Inhabitant")
-ggsave("Output/Plots/net_migration_plot_state.png", net_migration_plot_states)
+  labs(title = "Immigration rate by Municipality",
+       x = "Municipality",
+       y = "Immigration rate (Immigrants / inhabitant)")
+ggsave("Output/Plots/immigration_rate_plot.png", immigration_rate_plot, dpi = 700)
 
+# Emmigration Rate
 
-mun_nodes_yearly <- mun_nodes %>%
-  st_drop_geometry() %>%
-  group_by(year_census) %>%
-  summarise(
-    total_disasters_period = sum(total_disasters_period, na.rm = TRUE)
-  )
+emmigration_rate_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = emmigration_rate)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Emmigration rate by Municipality",
+       x = "Municipality",
+       y = "Emmigration rate (Emmigrants / inhabitant)")
+ggsave("Output/Plots/emmigration_rate_plot.png", emmigration_rate_plot, dpi = 700)
 
-ggplot(mun_nodes_yearly) +
-  geom_line(aes(x = year_census, y = count_tropical_cyclone)) +
-  geom_line(aes(x = year_census, y = count_drought)) +
-  geom_line(aes(x = year_census, y = total_disasters_period))
+# Net Immigration Rate
+
+net_immigration_plot <- ggplot(mun_nodes_sf) +
+  geom_sf(aes(fill = net_immigration_rate)) +
+  facet_wrap(~ year_census) +
+  scale_fill_distiller(palette="RdYlGn") +
+  labs(title = "Net Immigration rate by Municipality",
+       x = "Municipality",
+       y = "Net Immigration rate (Net Immigrants / inhabitant)")
+ggsave("Output/Plots/net_immigration_plot.png", net_immigration_plot, dpi = 700)
