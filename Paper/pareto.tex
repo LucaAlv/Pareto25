@@ -24,9 +24,10 @@ bindingoffset = 0mm]{geometry}
 \usepackage{hyperref}
 
 \newcommand{\quickcharcount}[1]{%
-  \immediate\write18{texcount -1 -sum -merge -char -q #1.tex output.bbl > #1-chars.sum }%
-  \input{#1-chars.sum} characters (not including spaces)%
+  \immediate\write18{texcount -1 -sum -merge -all-nonspace-char -q -out=#1-chars.sum #1.tex output.bbl}%
+  \input{#1-chars.sum}%
 }
+
 
 
 \hypersetup{
@@ -85,7 +86,8 @@ Munich, December 23\textsuperscript{th}, 2025
 
 \vfill
 
-Characters (incl. spaces): \quickcharcount
+Characters (excl. spaces): \quickcharcount{pareto}
+
 
 \end{center}
 \end{titlepage}
