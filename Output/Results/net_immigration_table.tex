@@ -1,0 +1,40 @@
+\begingroup
+\centering
+\begin{tabular}{lccc}
+   \tabularnewline \midrule \midrule
+   Dependent Variable: & \multicolumn{3}{c}{net\_immigration}\\
+                              & (1)     & (2)     & (3) \\   
+   Model:                     & (1)     & (2)     & (3)\\  
+   \midrule
+   \emph{Variables}\\
+   Constant                   & -115.2  &         &   \\   
+                              & (360.6) &         &   \\   
+   total\_disasters\_period   & 35.3    & 4.60    & -29.2\\   
+                              & (111.8) & (27.7)  & (28.8)\\   
+   mun\_pop                   &         &         & 0.049\\   
+                              &         &         & (0.034)\\   
+   mean\_inc                  &         &         & 0.243$^{**}$\\   
+                              &         &         & (0.099)\\   
+   mean\_age                  &         &         & -182.4$^{*}$\\   
+                              &         &         & (95.4)\\   
+   rate\_female               &         &         & -13,188.3$^{***}$\\   
+                              &         &         & (4,635.0)\\   
+   rate\_literacy             &         &         & 7,561.0$^{***}$\\   
+                              &         &         & (1,932.7)\\   
+   mean\_urban                &         &         & 512.7\\   
+                              &         &         & (748.3)\\   
+   crime\_period              &         &         & -0.638\\   
+                              &         &         & (1.09)\\   
+   \midrule
+   \emph{Fixed-effects}\\
+   geolevel2                  &         & Yes     & Yes\\  
+   year\_census               &         & Yes     & Yes\\  
+   \midrule
+   \emph{Fit statistics}\\
+   Observations               & 6,975   & 6,975   & 6,965\\  
+   R$^2$                      & 0.00028 & 0.84391 & 0.84883\\  
+   \midrule \midrule
+   \multicolumn{4}{l}{\emph{Clustered (geolevel2) standard-errors in parentheses}}\\
+   \multicolumn{4}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\
+\end{tabular}
+\par\endgroup

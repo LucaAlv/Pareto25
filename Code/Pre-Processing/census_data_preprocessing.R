@@ -154,3 +154,16 @@ gc()
 fwrite(census_data_controls, "Data/temp/census_data_controls.csv")
 saveRDS(census_data_controls, "Data/temp/census_data_controls.rds")
 cat("Processed and saved census control data\n")
+
+##### Merge census controls with crime control
+
+# Load crime data 
+crime_data <- readRDS("Data/temp/crime_data_census.rds")
+
+census_data_controls_crime <- census_data_controls %>%
+  left_join(crime_data, by = c("geolevel2" = "geo2_mx", "year" = "year_census"))
+
+fwrite(census_data_controls_crime, "Data/temp/census_data_controls_crime.csv")
+saveRDS(census_data_controls_crime, "Data/temp/census_data_controls_crime.rds")
+cat("Merged control data with crime data and saved.\n")
+

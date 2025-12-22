@@ -11,7 +11,7 @@ cat("Load preprocessed Data\n")
 
 census_data <- read_csv("Data/temp/census_data.csv")
 cat("Loaded census data\n")
-census_data_controls <- readRDS("Data/temp/census_data_controls.rds")
+census_data_controls <- readRDS("Data/temp/census_data_controls_crime.rds")
 cat("Loaded census controls data\n")
 disaster_indicator <- readRDS("Data/temp/disaster_data_census.rds")
 cat("Loaded disaster indicator data\n")
