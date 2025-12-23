@@ -10,11 +10,18 @@ library(kableExtra)
 mun_nodes <- readRDS("Data/temp/mun_nodes.rds")
 state_nodes <- readRDS("Data/temp/state_nodes_postprocess.rds")
 
-mun_nodes_sf <- st_as_sf(mun_nodes)
-state_nodes_sf <- st_as_sf(state_nodes)
+mun_nodes_sf <- mun_nodes %>%
+  filter(!year_census == 2005) %>%
+  filter(!year_census == 2025) %>%
+  st_as_sf()
 
-mun_nodes_nosf <- st_drop_geometry(mun_nodes)
-state_nodes_nosf <- st_drop_geometry(state_nodes)
+state_nodes_sf <- st_as_sf(state_nodes) %>%
+  filter(!year_census == 2005) %>%
+  filter(!year_census == 2025) %>%
+  st_as_sf()
+
+mun_nodes_nosf <- st_drop_geometry(mun_nodes_sf)
+state_nodes_nosf <- st_drop_geometry(state_nodes_sf)
 
 ########### Municipality Tables #############
 
@@ -262,7 +269,7 @@ header_bottom <- c("Variable" = 1, "N" = 1,
 # Alignment vector
 align_vec <- c("l", "r", rep(c("r", "r"), length(periods_chr)))
 
-# Generate LaTeX table
+# Generate latex table
 table2 <- kable(
   sumtab_print,
   format = "latex",

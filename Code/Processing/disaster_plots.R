@@ -9,7 +9,12 @@ library(scales)
 
 disaster_data_pre <- readRDS("Data/temp/disaster_data.rds")
 disaster_data_post <- readRDS("Data/temp/disaster_data_census.rds")
-mun_nodes <- readRDS("Data/temp/mun_nodes.rds")
+mun_nodes_nosf <- readRDS("Data/temp/mun_nodes.rds")
+
+mun_nodes <- mun_nodes_nosf %>%
+  filter(!year_census == 2005) %>%
+  filter(!year_census == 2025) %>%
+  st_as_sf()
 
 idmc_displacement_raw <- read_excel("Data/Weather Data/IDMC/IDMC_GIDD_Disasters_Internal_Displacement_Data.xlsx")
 

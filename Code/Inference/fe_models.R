@@ -31,8 +31,10 @@ clean_names <- c(
     crime_period = "Crime rate (homicides)",
     mean_inc = "Mean income",
     geolevel2 = "Municipality FE",
+    geolevel1 = "State FE",
     year_census = "Year FE",
-    total_disasters_lag1 = "Total disasters (lag 1)"
+    total_disasters_lag1 = "Total disasters (lag 1)",
+    total_disasters_lead1 = "Total disaster (lead 1)"
   )
 
 # base model -> main table
@@ -73,6 +75,7 @@ table1 <- etable(
   se = "cluster",
   cluster = ~geolevel2,
   tex = TRUE,
+  title = "Main Results",
   signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
   fitstat = ~ n + r2,
   dict = clean_names
@@ -110,6 +113,7 @@ table2 <- etable(
   se = "cluster",
   cluster = ~geolevel2,
   tex = TRUE,
+  title = "Alternative Model Specifications",
   signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
   fitstat = ~ n + r2,
   dict = clean_names
@@ -163,6 +167,7 @@ table3 <- etable(
   model_net_lag1, model_net_lead1, model_net_dynamic, model_net_conley_50, model_net_conley_100,
   cluster = ~geolevel2,
   tex = TRUE,
+  title = "Alternative Model Specifications",
   signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
   fitstat = ~ n + r2,
   dict = clean_names
