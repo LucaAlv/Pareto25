@@ -10,8 +10,8 @@ Create mun_nodes dataset:
 TWFE models:
 Run fe_models
 
-Census Tables (including summary tables)
+Census Tables (including summary tables):
 Run census_plots.R
 
-Disaster Graphs 
+Disaster Graphs:
 Run disaster_plots.R
