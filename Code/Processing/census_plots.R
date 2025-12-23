@@ -7,7 +7,6 @@ library(viridis)
 library(knitr)
 library(kableExtra)
 
-state_nodes_pre <- readRDS("Data/temp/state_nodes_preprocess.rds")
 mun_nodes <- readRDS("Data/temp/mun_nodes.rds")
 state_nodes <- readRDS("Data/temp/state_nodes_postprocess.rds")
 
@@ -21,7 +20,7 @@ state_nodes_nosf <- st_drop_geometry(state_nodes)
 
 #### Variable Name Mapping ####
 
-# Create a mapping for pretty variable names
+# Create a mapping for nicer variable names
 var_labels <- c(
   "period_immigration" = "Period Immigration",
   "period_emmigration" = "Period Emmigration",
@@ -37,7 +36,8 @@ var_labels <- c(
   "rate_female" = "Female Rate",
   "rate_literacy" = "Literacy Rate",
   "mean_yrschool" = "Mean Years of Schooling",
-  "mun_pop" = "Municipal Population"
+  "mun_pop" = "Municipal Population",
+  "crime_period" = "Crime (Homicides)"
 )
 
 #### Table 1: Overall Summary Statistics ####
@@ -54,7 +54,7 @@ disasters <- c(
 
 controls <- c(
   "mean_inc", "popdensgeo2", "mean_age", "rate_female", "rate_literacy",
-  "mean_yrschool", "mun_pop"
+  "mean_yrschool", "mun_pop", "crime_period"
 )
 
 vars <- c(outcomes, disasters, controls)
@@ -108,7 +108,8 @@ sumtab <- mun_nodes_nosf %>%
       "Total Unique Disasters (Period)", "Total Disasters (Period)",
       # Panel C variables (will maintain their order)
       "Mean Income", "Mean Age", "Female Rate", "Literacy Rate", 
-      "Mean Years of Schooling", "Municipal Population", "Population Density"
+      "Mean Years of Schooling", "Municipal Population", "Population Density",
+      "Crime (Homicides)"
     ))
   )
 
@@ -221,7 +222,8 @@ sumtab <- sumtab %>%
       "Total Unique Disasters (Period)", "Total Disasters (Period)",
       # Panel C variables (will maintain their order)
       "Mean Income", "Mean Age", "Female Rate", "Literacy Rate", 
-      "Mean Years of Schooling", "Municipal Population", "Population Density"
+      "Mean Years of Schooling", "Municipal Population", "Population Density",
+      "Crime (Homicides)"
     ))
   )
 

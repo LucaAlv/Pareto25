@@ -13,7 +13,7 @@ census_data <- read_csv("Data/temp/census_data.csv")
 cat("Loaded census data\n")
 census_data_controls <- readRDS("Data/temp/census_data_controls_crime.rds")
 cat("Loaded census controls data\n")
-disaster_indicator <- readRDS("Data/temp/disaster_data_census.rds")
+disaster_indicator <- readRDS("Data/temp/disaster_data_census_period.rds")
 cat("Loaded disaster indicator data\n")
 
 #### Load Spatial Data ####
@@ -45,7 +45,7 @@ cat("Generating nodes data frame\n")
 
 expanded_years <- expand_grid(
   geolevel2 = unique(census_sf_geo2$geolevel2),
-  year_census = c(2010, 2015, 2020)
+  year_census = c(2005, 2010, 2015, 2020, 2025)
 )
 
 # Nodes Data Frame - one entry per municipality per year
@@ -73,8 +73,16 @@ mun_nodes_nomig <- census_sf_geo2 %>%
     ),
     total_unique_disasters_period = replace_na(total_unique_disasters_period, 0),
     total_disasters_period = replace_na(total_disasters_period, 0)
-  )
-
+  ) %>%
+  # Add leads and lags
+  arrange(geolevel2, year_census) %>%
+  group_by(geolevel2) %>%
+  mutate(
+    total_disasters_lag1  = lag(total_disasters_period, 1),
+    total_disasters_lead1 = lead(total_disasters_period, 1),
+    total_disasters_lead2 = lead(total_disasters_period, 2)
+  ) %>%
+  ungroup()
 
 
 rm(census_sf_geo2)
@@ -150,7 +158,6 @@ gc()
 mun_nodes <- mun_nodes_nomig %>%
   full_join(od_dest, by = c("geolevel2" = "geolevel2", "year_census" = "year_census")) %>%
   full_join(od_orig, by = c("geolevel2" = "mig2_5_mx", "year_census" = "year_census")) %>%
-  filter(!year_census == 2005) %>%
   filter(!year_census == 2000) %>%
   # Assuming zero migration where I have no data
   mutate(
@@ -188,7 +195,7 @@ state_nodes_postprocess <- mun_nodes %>%
     mean_emmigration_rate = mean(emmigration_rate, na.rm = TRUE),
     .groups = "drop"
   ) %>%
-  full_join(census_sf_geo1, by = c("geolevel1" = "geolevel1"))
+  left_join(census_sf_geo1, by = c("geolevel1" = "geolevel1"))
 
 saveRDS(state_nodes_postprocess, "Data/temp/state_nodes_postprocess.rds")
 cat("Generated and saved state node postprocess data\n")

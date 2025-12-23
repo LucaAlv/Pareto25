@@ -131,31 +131,36 @@ cat("Processed and saved Disaster Indicator Data for FB Movement\n")
 #### Extract years ####
 
 disaster_data_census <- disaster_data %>%
-  # Extract the year out of the fecha_inicio column
   separate_wider_delim(fecha_inicio, "/", names = c(NA, NA, "year_start"), cols_remove = TRUE) %>%
   separate_wider_delim(fecha_fin, "/", names = c(NA, NA, "year_end"), cols_remove = TRUE) %>%
   mutate(
-    year_period = case_when(
-      year_start %in% 1996:2000 ~ "1996-2000", # Relevant for Census in 2000
-      year_start %in% 2001:2005 ~ "2001-2005", 
-      year_start %in% 2006:2010 ~ "2006-2010", # Relevant for Census in 2010
-      year_start %in% 2011:2015 ~ "2011-2015", # Relevant for Census in 2015
-      year_start %in% 2016:2020 ~ "2016-2020", # Relevant for Census in 2020
-      year_start %in% 2021:2025 ~ "2021-2025"
-    ),
+    year_start = as.integer(year_start),
+    year_end   = as.integer(year_end),
     year_census = case_when(
-      # example: a disaster in 2000 is relevant for migration flows between 2000 and 2005 / the 2005 census data gives us information about something that happened in 2000
-      year_start %in% 1995:2000 ~ 2000, # Relevant for Census in 2000
-      year_start %in% 2001:2005 ~ 2005, 
-      year_start %in% 2006:2010 ~ 2010, # Relevant for Census in 2010
-      year_start %in% 2011:2015 ~ 2015, # Relevant for Census in 2015
-      year_start %in% 2016:2020 ~ 2020, # Relevant for Census in 2020
-      year_start %in% 2021:2025 ~ 2025
+      year_start >= 1996 & year_start <= 2000 ~ 2000,
+      year_start >= 2001 & year_start <= 2005 ~ 2005,
+      year_start >= 2006 & year_start <= 2010 ~ 2010,
+      year_start >= 2011 & year_start <= 2015 ~ 2015,
+      year_start >= 2016 & year_start <= 2020 ~ 2020,
+      year_start >= 2021 & year_start <= 2025 ~ 2025,
+      TRUE ~ NA_integer_
     ),
-  )
+    year_period = case_when(
+      year_census == 2000 ~ "1996-2000",
+      year_census == 2005 ~ "2001-2005",
+      year_census == 2010 ~ "2006-2010",
+      year_census == 2015 ~ "2011-2015",
+      year_census == 2020 ~ "2016-2020",
+      year_census == 2025 ~ "2021-2025",
+      TRUE ~ NA_character_
+    )
+  ) %>%
+  filter(!is.na(year_census))
 
+saveRDS(disaster_data_census, "Data/temp/disaster_data_census.rds")
 #### Aggregating disaster data and adding columns for each disaster type ####
 cat("Aggregating disaster data\n")
+
 
 disaster_data_census_period_long <- disaster_data_census %>%
   group_by(year_census, geolevel2, phenomenon_type) %>%
@@ -199,5 +204,5 @@ disaster_data_census_period <- disaster_data_census_period_long %>%
       by = c("year_census", "geolevel2")
     )
 
-saveRDS(disaster_data_census_period, "Data/temp/disaster_data_census.rds")
+saveRDS(disaster_data_census_period, "Data/temp/disaster_data_census_period.rds")
 cat("Processed and saved Disaster Indicator Data for Census\n")

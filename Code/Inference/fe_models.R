@@ -2,8 +2,16 @@ library(tidyverse)
 library(estimatr)
 library(fixest)
 library(sf)
+library(knitr)
+library(kableExtra)
 
-mun_nodes <- readRDS("Data/temp/mun_nodes.rds")
+# Nodes with pre and post periods
+mun_nodes_ll <- readRDS("Data/temp/mun_nodes.rds")
+
+# Nodes without leads and lags
+mun_nodes <- mun_nodes_ll %>%
+  filter(!year_census == 2005) %>%
+  filter(!year_census == 2025)
 
 # Add lat lon columns for conley SEs
 coords <- st_coordinates(st_point_on_surface(mun_nodes$geometry))
@@ -12,15 +20,29 @@ mun_nodes$lat <- coords[, 2]
 
 ######################## Regressions ########################
 
-#### Absolute Net Immigration ####
+clean_names <- c(
+    net_immigration = "Net Immigration",
+    total_disasters_period = "Total disasters (period)",
+    mun_pop = "Municipal population",
+    mean_age = "Average age",
+    rate_female = "Female share",
+    rate_literacy = "Literacy rate",
+    mean_urban = "Urbanization rate",
+    crime_period = "Crime rate (homicides)",
+    mean_inc = "Mean income",
+    geolevel2 = "Municipality FE",
+    year_census = "Year FE",
+    total_disasters_lag1 = "Total disasters (lag 1)"
+  )
 
-# TWFE model for net migration rate as function of simple disaster indicator 
+# base model -> main table
 twfe_net_ols <- feols(
   net_immigration ~ total_disasters_period,
   data = mun_nodes,
   cluster = ~ geolevel2
 )
 
+# with FEs -> main table 
 model_net_fe_nocontrol <- feols(
   net_immigration ~ total_disasters_period |
     geolevel2 + year_census,
@@ -28,75 +50,123 @@ model_net_fe_nocontrol <- feols(
   cluster = ~ geolevel2
 )
 
+# main specification -> main table
 model_net <- feols(
-  net_immigration ~ total_disasters_period + mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+  net_immigration ~ total_disasters_period + 
+    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
     geolevel2 + year_census,
   data = mun_nodes,
   cluster = ~ geolevel2
 )
 
-net_immigration_table_print <- etable(
-  twfe_net_ols, model_net_fe_nocontrol, model_net,
-  se = "cluster",
-  cluster = ~geolevel2,
-  digits = 3,
-  signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
-  fitstat = ~ n + r2, 
-  headers = c("(1)", "(2)", "(3)")
+# main specification with lag1 -> main table
+model_net_lag1 <- feols(
+  net_immigration ~ total_disasters_period + total_disasters_lag1 +
+    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+    geolevel2 + year_census,
+  data = mun_nodes,
+  cluster = ~ geolevel2
 )
 
-net_immigration_table_tex <- etable(
-  twfe_net_ols, model_net_fe_nocontrol, model_net,
+table1 <- etable(
+  twfe_net_ols, model_net_fe_nocontrol, model_net, model_net_lag1,
   se = "cluster",
   cluster = ~geolevel2,
   tex = TRUE,
-  digits = 3,
   signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
-  fitstat = ~ n + r2, 
-  headers = c("(1)", "(2)", "(3)")
+  fitstat = ~ n + r2,
+  dict = clean_names
 )
 
-writeLines(net_immigration_table_tex, "Output/Results/net_immigration_table.tex")
-
-#### Absolute Net Immigration with Conley SEs ####
-
-# TWFE model for net migration rate as function of simple disaster indicator 
-twfe_net_ols_conley <- feols(
-  net_immigration ~ total_disasters_period,
+# lead1 specification -> second table
+model_net_only_lead1 <- feols(
+  net_immigration ~ total_disasters_lead1 +
+    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+    geolevel2 + year_census,
   data = mun_nodes,
-  vcov = vcov_conley(lat = ~lat, lon = ~lon, cutoff = 50)
+  cluster = ~ geolevel2
 )
 
-model_net_fe_nocontrol_conley <- feols(
-  net_immigration ~ total_disasters_period |
+# without income -> second table
+model_net_noincome <- feols(
+  net_immigration ~ total_disasters_period + 
+    mun_pop + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+    geolevel2 + year_census,
+  data = mun_nodes,
+  cluster = ~ geolevel2
+)
+
+# main specification with state x time FEs -> second table
+model_net_statefe <- feols(
+  net_immigration ~ total_disasters_period + 
+    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+    geolevel2 + year_census + geolevel1^year_census,
+  data = mun_nodes,
+  cluster = ~ geolevel2
+)
+
+table2 <- etable(
+  model_net_only_lead1, model_net_noincome, model_net_statefe,
+  se = "cluster",
+  cluster = ~geolevel2,
+  tex = TRUE,
+  signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
+  fitstat = ~ n + r2,
+  dict = clean_names
+)
+
+# main specification with lag1 without controls -> third table
+model_net_lag1 <- feols(
+  net_immigration ~ total_disasters_period + total_disasters_lag1 |
+    geolevel2 + year_census,
+  data = mun_nodes,
+  cluster = ~ geolevel2
+)
+
+# main specification with lead1 -> third table
+model_net_lead1 <- feols(
+  net_immigration ~ total_disasters_period + total_disasters_lead1 +
+    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+    geolevel2 + year_census + geolevel1^year_census,
+  data = mun_nodes,
+  cluster = ~ geolevel2
+)
+
+# full dynamic specification -> third table
+model_net_dynamic <- feols(
+  net_immigration ~ total_disasters_lag1 + total_disasters_period + total_disasters_lead1 +
+    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+    geolevel2 + year_census + geolevel1^year_census,
+  data = mun_nodes,
+  cluster = ~ geolevel2
+)
+
+# main specification with conley SEs
+model_net_conley_50 <- feols(
+  net_immigration ~ total_disasters_period + 
+  mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
     geolevel2 + year_census,
   data = mun_nodes,
   vcov = vcov_conley(lat = ~lat, lon = ~lon, cutoff = 50)
 )
 
-model_net_conley <- feols(
-  net_immigration ~ total_disasters_period + mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
+# main specification with conley SEs
+model_net_conley_100 <- feols(
+  net_immigration ~ total_disasters_period + 
+  mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
     geolevel2 + year_census,
   data = mun_nodes,
-  vcov = vcov_conley(lat = ~lat, lon = ~lon, cutoff = 50)
+  vcov = vcov_conley(lat = ~lat, lon = ~lon, cutoff = 100)
 )
 
-net_immigration_conley_table_print <- etable(
-  twfe_net_ols_conley, model_net_fe_nocontrol_conley, model_net_conley,
-  signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
-  fitstat = ~ n + r2, 
-  headers = c("(1)", "(2)", "(3)")
-)
-
-net_immigration_conley_table_tex <- etable(
-  twfe_net_ols_conley, model_net_fe_nocontrol_conley, model_net_conley,
+table3 <- etable(
+  model_net_lag1, model_net_lead1, model_net_dynamic, model_net_conley_50, model_net_conley_100,
+  cluster = ~geolevel2,
   tex = TRUE,
   signif.code = c("***"=0.01, "**"=0.05, "*"=0.1),
-  fitstat = ~ n + r2, 
-  headers = c("(1)", "(2)", "(3)")
+  fitstat = ~ n + r2,
+  dict = clean_names
 )
-
-writeLines(net_immigration_conley_table_tex, "Output/Results/net_immigration_conley_table.tex")
 
 ######################## Graphs ########################
 
@@ -131,78 +201,4 @@ ggplot(plot_data, aes(x = x_res, y = y_res)) +
     x = "Disaster intensity (residualized)",
     y = "Net immigration rate (residualized)"
   ) +
-  theme_minimal()
-
-# “After removing municipality and year fixed effects, higher disaster intensity is associated with lower/higher net migration.”
-
-# “Figure 1 plots binned averages of net immigration and disaster intensity after residualizing both variables with respect to municipality and year fixed effects. 
-
-# Each point represents the mean within one of 20 equally sized bins.”
-
-
-#### Figure 2 - leads and lags ####
-
-# Show No anticipation (future disasters shouldn’t predict current migration)
-
-# Show Timing/persistence (is the effect concentrated in the most recent 5 years or does it linger?)
-
-# build municipality dataset with leads and lags for disasters
-mun_nodes_ll <- mun_nodes %>%
-  st_drop_geometry() %>%
-  arrange(geolevel2, year_census) %>%
-  group_by(geolevel2) %>%
-  mutate(
-    shock_0 = total_disasters_period, # disasters in previous 5 years
-    shock_lag1 = lag(total_disasters_period), # previous interval (5–10 years ago)
-    shock_lead1 = lead(total_disasters_period) # next interval as placebo
-  ) %>%
-  ungroup()
-
-
-# Check if future disaster intensity predicts current migration - it shouldn't
-m_lead <- feols(
-  net_immigration ~ shock_0 + shock_lead1 +
-    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
-    geolevel2 + year_census,
-  data = mun_nodes_ll,
-  cluster = ~ geolevel2
-)
-# shock_lead1 should be approx. 0 or at least insignificant
-
-summary(m_lead)
-
-
-# Check if disaster intensity from previous 5-year interval still matters
-m_lag <- feols(
-  net_immigration ~ shock_0 + shock_lag1 +
-    mun_pop + mean_inc + mean_age + rate_female + rate_literacy + mean_urban + crime_period |
-    geolevel2 + year_census,
-  data = mun_es,
-  cluster = ~ geolevel2
-)
-# shock_lag1 gives information about whether effets persist beyond the immediate 5-year window
-
-summary(m_lag)
-
-get_term <- function(model, term, event_time){
-  broom::tidy(model, conf.int = TRUE) %>%
-    subset(term == !!term) %>%
-    transform(event_time = event_time)
-}
-
-df_plot <- rbind(
-  get_term(m_lag,  "shock_lag1",  -1),
-  get_term(m_lag,  "shock_0",      0),
-  get_term(m_lead, "shock_lead1",  1)
-)
-
-df_plot$label <- factor(df_plot$event_time,
-                        levels = c(-1,0,1),
-                        labels = c("Lag (5–10y ago)", "Current (0–5y)", "Lead (next 5y, placebo)"))
-
-ggplot(df_plot, aes(x = label, y = estimate)) +
-  geom_hline(yintercept = 0, linetype = "dashed") +
-  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.15) +
-  geom_point(size = 2) +
-  labs(x = "", y = "Effect per 1-unit increase in disasters (clustered 95% CI)") +
   theme_minimal()
